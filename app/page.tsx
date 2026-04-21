@@ -2,7 +2,24 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-const STATUS_OPTIONS = [
+type StatusValue = "seed" | "growing" | "ready" | "done";
+
+type Idea = {
+  id: string;
+  content: string;
+  status: StatusValue;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+type StatusOption = {
+  value: StatusValue;
+  label: string;
+  icon: string;
+};
+
+const STATUS_OPTIONS: StatusOption[] = [
   { value: "seed", label: "種", icon: "🌱" },
   { value: "growing", label: "育成中", icon: "🌿" },
   { value: "ready", label: "使える", icon: "🔥" },
@@ -11,7 +28,7 @@ const STATUS_OPTIONS = [
 
 const STORAGE_KEY = "hirameki-techo-v0";
 
-const initialIdeas = [
+const initialIdeas: Idea[] = [
   {
     id: "idea-1",
     content: "黒猫の瞳が最後にだけ映る",
@@ -30,11 +47,11 @@ const initialIdeas = [
   },
 ];
 
-function classNames(...c) {
+function classNames(...c: Array<string | false | null | undefined>): string {
   return c.filter(Boolean).join(" ");
 }
 
-function formatDate(value) {
+function formatDate(value: string): string {
   try {
     return new Date(value).toLocaleString("ja-JP", {
       month: "2-digit",
@@ -47,57 +64,49 @@ function formatDate(value) {
   }
 }
 
-function getAllTags(ideas) {
-  return [...new Set(ideas.flatMap((idea) => idea.tags))];
+function getAllTags(ideas: Idea[]): string[] {
+  return [...new Set(ideas.flatMap((idea: Idea) => idea.tags))];
 }
 
-function loadIdeasFromStorage() {
-  if (typeof window === "undefined") return initialIdeas;
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return initialIdeas;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length ? parsed : initialIdeas;
-  } catch {
-    return initialIdeas;
-  }
-}
-
-function runTests() {
+function runTests(): void {
   console.assert(classNames("a", false, "b") === "a b", "classNames should join truthy values");
-  console.assert(getAllTags([{ tags: ["x", "y"] }, { tags: ["y", "z"] }]).length === 3, "getAllTags should dedupe tags");
-  console.assert(STATUS_OPTIONS.find((s) => s.value === "seed")?.label === "種", "seed status should exist");
-  console.assert(Array.isArray(loadIdeasFromStorage()), "loadIdeasFromStorage should always return an array");
+  console.assert(getAllTags([{ ...initialIdeas[0], tags: ["x", "y"] }, { ...initialIdeas[1], tags: ["y", "z"] }]).length === 3, "getAllTags should dedupe tags");
+  console.assert(STATUS_OPTIONS.find((s: StatusOption) => s.value === "seed")?.label === "種", "seed status should exist");
 }
 
 runTests();
 
-export default function App() {
-  const inputRef = useRef(null);
-  const listRef = useRef(null);
-  const tagInputRef = useRef(null);
+export default function App(): React.JSX.Element {
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const tagInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Hydration mismatch回避のため、初回は固定データで描画してから client 側で差し替える
-  const [ideas, setIdeas] = useState(initialIdeas);
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  const [input, setInput] = useState("");
-  const [search, setSearch] = useState("");
-  const [selectedId, setSelectedId] = useState(null);
-  const [lastCreatedId, setLastCreatedId] = useState(null);
-  const [randomFlashId, setRandomFlashId] = useState(null);
-
-  const [showFilters, setShowFilters] = useState(false);
-  const [activeTag, setActiveTag] = useState(null);
-  const [activeStatus, setActiveStatus] = useState(null);
-
-  const [draftTag, setDraftTag] = useState("");
+  const [ideas, setIdeas] = useState<Idea[]>(initialIdeas);
+  const [isHydrated, setIsHydrated] = useState<boolean>(false);
+  const [input, setInput] = useState<string>("");
+  const [search, setSearch] = useState<string>("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [lastCreatedId, setLastCreatedId] = useState<string | null>(null);
+  const [randomFlashId, setRandomFlashId] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState<boolean>(false);
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [activeStatus, setActiveStatus] = useState<StatusValue | null>(null);
+  const [draftTag, setDraftTag] = useState<string>("");
 
   useEffect(() => {
-    const storedIdeas = loadIdeasFromStorage();
-    setIdeas(storedIdeas);
-    setIsHydrated(true);
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        setIdeas(initialIdeas);
+      } else {
+        const parsed = JSON.parse(raw) as Idea[];
+        setIdeas(Array.isArray(parsed) && parsed.length ? parsed : initialIdeas);
+      }
+    } catch {
+      setIdeas(initialIdeas);
+    } finally {
+      setIsHydrated(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -113,32 +122,32 @@ export default function App() {
     if (!lastCreatedId) return;
     const el = document.getElementById(`idea-${lastCreatedId}`);
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
-    const t = setTimeout(() => setLastCreatedId(null), 800);
-    return () => clearTimeout(t);
+    const t = window.setTimeout(() => setLastCreatedId(null), 800);
+    return () => window.clearTimeout(t);
   }, [lastCreatedId]);
 
   useEffect(() => {
     if (!randomFlashId) return;
-    const t = setTimeout(() => setRandomFlashId(null), 800);
-    return () => clearTimeout(t);
+    const t = window.setTimeout(() => setRandomFlashId(null), 800);
+    return () => window.clearTimeout(t);
   }, [randomFlashId]);
 
-  const filtered = useMemo(() => {
+  const filtered = useMemo<Idea[]>(() => {
     const keyword = search.trim().toLowerCase();
 
     return [...ideas]
       .filter(
-        (idea) =>
+        (idea: Idea) =>
           !keyword ||
           idea.content.toLowerCase().includes(keyword) ||
-          idea.tags.some((tag) => tag.toLowerCase().includes(keyword)),
+          idea.tags.some((tag: string) => tag.toLowerCase().includes(keyword)),
       )
-      .filter((idea) => !activeTag || idea.tags.includes(activeTag))
-      .filter((idea) => !activeStatus || idea.status === activeStatus)
-      .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+      .filter((idea: Idea) => !activeTag || idea.tags.includes(activeTag))
+      .filter((idea: Idea) => !activeStatus || idea.status === activeStatus)
+      .sort((a: Idea, b: Idea) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }, [ideas, search, activeTag, activeStatus]);
 
-  const selected = ideas.find((idea) => idea.id === selectedId) || null;
+  const selected: Idea | null = ideas.find((idea: Idea) => idea.id === selectedId) || null;
 
   useEffect(() => {
     if (selectedId) return;
@@ -147,9 +156,9 @@ export default function App() {
     }
   }, [selectedId, filtered]);
 
-  function patchIdea(id, patch) {
-    setIdeas((prev) =>
-      prev.map((idea) =>
+  function patchIdea(id: string, patch: Partial<Idea>): void {
+    setIdeas((prev: Idea[]) =>
+      prev.map((idea: Idea) =>
         idea.id === id
           ? {
               ...idea,
@@ -161,12 +170,12 @@ export default function App() {
     );
   }
 
-  function createIdea() {
+  function createIdea(): void {
     const content = input.trim();
     if (!content) return;
 
     const now = new Date().toISOString();
-    const next = {
+    const next: Idea = {
       id: crypto.randomUUID(),
       content,
       status: "seed",
@@ -175,7 +184,7 @@ export default function App() {
       updatedAt: now,
     };
 
-    setIdeas((prev) => [next, ...prev]);
+    setIdeas((prev: Idea[]) => [next, ...prev]);
     setSelectedId(next.id);
     setLastCreatedId(next.id);
     setInput("");
@@ -183,7 +192,7 @@ export default function App() {
     requestAnimationFrame(() => inputRef.current?.focus());
   }
 
-  function pickRandom() {
+  function pickRandom(): void {
     if (!ideas.length) return;
     const picked = ideas[Math.floor(Math.random() * ideas.length)];
     setSelectedId(picked.id);
@@ -191,7 +200,7 @@ export default function App() {
     document.getElementById(`idea-${picked.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
-  function handleMainKeyDown(e) {
+  function handleMainKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): void {
     if (selected) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -199,15 +208,15 @@ export default function App() {
     }
   }
 
-  function toggleTag(tag) {
-    setActiveTag((prev) => (prev === tag ? null : tag));
+  function toggleTag(tag: string): void {
+    setActiveTag((prev: string | null) => (prev === tag ? null : tag));
   }
 
-  function toggleStatus(status) {
-    setActiveStatus((prev) => (prev === status ? null : status));
+  function toggleStatus(status: StatusValue): void {
+    setActiveStatus((prev: StatusValue | null) => (prev === status ? null : status));
   }
 
-  function addTagToSelected() {
+  function addTagToSelected(): void {
     if (!selected) return;
     const value = draftTag.trim().replace(/^#/, "");
     if (!value) return;
@@ -220,16 +229,16 @@ export default function App() {
     requestAnimationFrame(() => tagInputRef.current?.focus());
   }
 
-  function removeTagFromSelected(tag) {
+  function removeTagFromSelected(tag: string): void {
     if (!selected) return;
-    const nextTags = selected.tags.filter((t) => t !== tag);
+    const nextTags = selected.tags.filter((t: string) => t !== tag);
     patchIdea(selected.id, { tags: nextTags });
-    if (activeTag === tag && !ideas.some((idea) => idea.id !== selected.id && idea.tags.includes(tag))) {
+    if (activeTag === tag && !ideas.some((idea: Idea) => idea.id !== selected.id && idea.tags.includes(tag))) {
       setActiveTag(null);
     }
   }
 
-  function clearSelection() {
+  function clearSelection(): void {
     setSelectedId(null);
     setDraftTag("");
     setInput("");
@@ -246,7 +255,7 @@ export default function App() {
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl">ひらめき手帳</h1>
             <button onClick={pickRandom} className="rounded-lg border px-2 py-1 text-xs">ランダム</button>
-            <button onClick={() => setShowFilters((v) => !v)} className="rounded-lg border px-2 py-1 text-xs">整理</button>
+            <button onClick={() => setShowFilters((v: boolean) => !v)} className="rounded-lg border px-2 py-1 text-xs">整理</button>
             {selected && (
               <button onClick={clearSelection} className="rounded-lg border border-zinc-700 px-2 py-1 text-xs text-zinc-400">新規に戻る</button>
             )}
@@ -264,7 +273,7 @@ export default function App() {
           </div>
           <input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
             placeholder="検索"
             className="w-full rounded-lg bg-zinc-900 px-3 py-2 text-sm md:w-auto"
           />
@@ -275,7 +284,7 @@ export default function App() {
             {activeTag && <span className="rounded-lg border border-emerald-500/60 bg-emerald-500/10 px-2 py-1">#{activeTag}</span>}
             {activeStatus && (
               <span className="rounded-lg border border-purple-500/60 bg-purple-500/10 px-2 py-1">
-                {STATUS_OPTIONS.find((s) => s.value === activeStatus)?.icon} {STATUS_OPTIONS.find((s) => s.value === activeStatus)?.label}
+                {STATUS_OPTIONS.find((s: StatusOption) => s.value === activeStatus)?.icon} {STATUS_OPTIONS.find((s: StatusOption) => s.value === activeStatus)?.label}
               </span>
             )}
           </div>
@@ -286,7 +295,7 @@ export default function App() {
             <div className="mb-2 text-xs text-zinc-400">タグ</div>
             <div className="flex flex-wrap gap-2">
               {allTags.length === 0 && <div className="text-xs text-zinc-500">タグはまだありません</div>}
-              {allTags.map((tag) => (
+              {allTags.map((tag: string) => (
                 <button
                   key={tag}
                   onClick={() => toggleTag(tag)}
@@ -302,7 +311,7 @@ export default function App() {
 
             <div className="mb-2 mt-3 text-xs text-zinc-400">ステータス</div>
             <div className="flex flex-wrap gap-2">
-              {STATUS_OPTIONS.map((status) => (
+              {STATUS_OPTIONS.map((status: StatusOption) => (
                 <button
                   key={status.value}
                   onClick={() => toggleStatus(status.value)}
@@ -321,7 +330,7 @@ export default function App() {
         <textarea
           ref={inputRef}
           value={mainValue}
-          onChange={(e) => {
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
             if (selected) {
               patchIdea(selected.id, { content: e.target.value });
             } else {
@@ -339,7 +348,7 @@ export default function App() {
 
             <div className="mb-2 text-xs text-zinc-400">タグ</div>
             <div className="mb-3 flex flex-wrap gap-2">
-              {selected.tags.map((tag) => (
+              {selected.tags.map((tag: string) => (
                 <div key={tag} className="flex items-center gap-1">
                   <button
                     onClick={() => toggleTag(tag)}
@@ -364,8 +373,8 @@ export default function App() {
               <input
                 ref={tagInputRef}
                 value={draftTag}
-                onChange={(e) => setDraftTag(e.target.value)}
-                onKeyDown={(e) => {
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDraftTag(e.target.value)}
+                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
                     addTagToSelected();
@@ -379,7 +388,7 @@ export default function App() {
 
             <div className="mb-2 text-xs text-zinc-400">ステータス</div>
             <div className="flex flex-wrap gap-2">
-              {STATUS_OPTIONS.map((status) => (
+              {STATUS_OPTIONS.map((status: StatusOption) => (
                 <button
                   key={status.value}
                   onClick={() => patchIdea(selected.id, { status: status.value })}
@@ -396,7 +405,7 @@ export default function App() {
         )}
 
         <div ref={listRef} className="space-y-2 md:max-h-[400px] md:overflow-y-auto">
-          {filtered.map((idea) => {
+          {filtered.map((idea: Idea) => {
             const isNew = idea.id === lastCreatedId;
             const isRandom = idea.id === randomFlashId;
             const isSelected = selected?.id === idea.id;
@@ -416,15 +425,15 @@ export default function App() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="text-sm leading-6">{idea.content}</div>
                   <div className="shrink-0 text-xs text-zinc-400">
-                    {STATUS_OPTIONS.find((s) => s.value === idea.status)?.icon}
+                    {STATUS_OPTIONS.find((s: StatusOption) => s.value === idea.status)?.icon}
                   </div>
                 </div>
                 <div className="mt-2 flex items-center justify-between gap-3">
                   <div className="flex flex-wrap gap-2">
-                    {idea.tags.map((tag) => (
+                    {idea.tags.map((tag: string) => (
                       <button
                         key={tag}
-                        onClick={(e) => {
+                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                           e.stopPropagation();
                           toggleTag(tag);
                         }}
