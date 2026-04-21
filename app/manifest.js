@@ -2,13 +2,10 @@ export default function manifest() {
   return {
     name: "ひらめき手帳",
     short_name: "ひらめき手帳",
-    description: "思いつきを最速で書いて、あとで使える発想に育てる",
     start_url: "/",
     display: "standalone",
     background_color: "#09090b",
     theme_color: "#09090b",
-    lang: "ja",
-    orientation: "portrait",
     icons: [
       {
         src: "/icon-192.png",
@@ -18,11 +15,6 @@ export default function manifest() {
       {
         src: "/icon-512.png",
         sizes: "512x512",
-        type: "image/png",
-      },
-      {
-        src: "/apple-touch-icon.png",
-        sizes: "180x180",
         type: "image/png",
       },
     ],
